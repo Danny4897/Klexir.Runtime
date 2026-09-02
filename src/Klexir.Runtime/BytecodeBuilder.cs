@@ -35,6 +35,19 @@ public sealed class BytecodeBuilder
 
     public BytecodeBuilder Ret() => Emit(OpCode.Ret);
 
+    public BytecodeBuilder NewObj(int fieldCount) => EmitWithInt32Operand(OpCode.NewObj, fieldCount);
+
+    public BytecodeBuilder LoadField(int fieldIndex) => EmitWithInt32Operand(OpCode.LoadField, fieldIndex);
+
+    public BytecodeBuilder StoreField(int fieldIndex) => EmitWithInt32Operand(OpCode.StoreField, fieldIndex);
+
+    private BytecodeBuilder EmitWithInt32Operand(OpCode op, int operand)
+    {
+        _bytes.Add((byte)op);
+        _bytes.AddRange(BitConverter.GetBytes(operand));
+        return this;
+    }
+
     private BytecodeBuilder Emit(OpCode op)
     {
         _bytes.Add((byte)op);

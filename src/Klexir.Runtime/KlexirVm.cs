@@ -10,6 +10,9 @@ namespace Klexir.Runtime;
 /// </summary>
 public sealed class KlexirVm(byte[] code, int entryPoint = 0)
 {
+    /// <summary>The VM's object heap. Exposed so a host can manage GC roots and trigger <see cref="ManagedHeap.Collect"/> around VM execution — <c>Run()</c> never collects on its own.</summary>
+    public ManagedHeap Heap { get; } = new();
+
     public Result<long> Run()
     {
         var stack = new Stack<long>();
@@ -67,6 +70,71 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     }
 
                     ip = callStack.Pop();
+                    break;
+
+                case OpCode.NewObj:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for NewObj."));
+                    }
+
+                    var fieldCount = BitConverter.ToInt32(code, ip);
+                    ip += sizeof(int);
+
+                    if (fieldCount < 0)
+                    {
+                        return Result<long>.Failure(Error.Create("NewObj field count must not be negative."));
+                    }
+
+                    stack.Push(Heap.Allocate(fieldCount).Id);
+                    break;
+
+                case OpCode.LoadField:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for LoadField."));
+                    }
+
+                    var loadIndex = BitConverter.ToInt32(code, ip);
+                    ip += sizeof(int);
+
+                    if (stack.Count < 1)
+                    {
+                        return Result<long>.Failure(Error.Create("Stack underflow executing LoadField."));
+                    }
+
+                    var loadTarget = new HeapHandle((int)stack.Pop());
+                    var loaded = Heap.GetField(loadTarget, loadIndex);
+                    if (loaded.IsFailure)
+                    {
+                        return Result<long>.Failure(loaded.Error);
+                    }
+
+                    stack.Push(loaded.Value.Id);
+                    break;
+
+                case OpCode.StoreField:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for StoreField."));
+                    }
+
+                    var storeIndex = BitConverter.ToInt32(code, ip);
+                    ip += sizeof(int);
+
+                    if (stack.Count < 2)
+                    {
+                        return Result<long>.Failure(Error.Create("Stack underflow executing StoreField."));
+                    }
+
+                    var fieldValue = new HeapHandle((int)stack.Pop());
+                    var storeTarget = new HeapHandle((int)stack.Pop());
+                    var stored = Heap.SetField(storeTarget, storeIndex, fieldValue);
+                    if (stored.IsFailure)
+                    {
+                        return Result<long>.Failure(stored.Error);
+                    }
+
                     break;
 
                 case OpCode.Halt:

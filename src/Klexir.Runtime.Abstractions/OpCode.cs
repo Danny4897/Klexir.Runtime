@@ -29,4 +29,13 @@ public enum OpCode : byte
 
     /// <summary>Pops the call stack and jumps to that return address. Fails if the call stack is empty.</summary>
     Ret = 7,
+
+    /// <summary>Allocates a heap object with the following 4-byte field count; pushes its handle id.</summary>
+    NewObj = 8,
+
+    /// <summary>Pops a handle id, reads its field at the following 4-byte index, pushes that field's handle id (or -1 for none).</summary>
+    LoadField = 9,
+
+    /// <summary>Pops a value handle id then a target handle id, and stores the value into the target's field at the following 4-byte index.</summary>
+    StoreField = 10,
 }
