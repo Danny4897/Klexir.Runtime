@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Klexir.Runtime.Abstractions</AssemblyName>
+    <PackageId>Klexir.Runtime.Abstractions</PackageId>
+    <Description>Public bytecode contract for the Klexir runtime (opcodes) — the interface Klexir.Lang compiles against.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
