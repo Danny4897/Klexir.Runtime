@@ -47,4 +47,22 @@ public enum OpCode : byte
 
     /// <summary>Pops a value; jumps to the following 4-byte absolute address if it was zero, otherwise continues past the operand.</summary>
     JumpIfZero = 13,
+
+    /// <summary>Pops two values (b, a in pop order), pushes 1 if a &lt; b else 0.</summary>
+    Lt = 14,
+
+    /// <summary>Pops two values (b, a in pop order), pushes 1 if a &gt; b else 0.</summary>
+    Gt = 15,
+
+    /// <summary>Pops two values, pushes 1 if they're equal else 0.</summary>
+    Eq = 16,
+
+    /// <summary>Pops two values (b, a in pop order), pushes 1 if a &lt;= b else 0.</summary>
+    Le = 17,
+
+    /// <summary>Pops two values (b, a in pop order), pushes 1 if a &gt;= b else 0.</summary>
+    Ge = 18,
+
+    /// <summary>Pushes a copy of the value at the following 4-byte absolute stack index (0 = the bottom of the stack). Fails if the index is out of range.</summary>
+    LoadLocal = 19,
 }

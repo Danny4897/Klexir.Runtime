@@ -43,6 +43,18 @@ public sealed class BytecodeBuilder
 
     public BytecodeBuilder Dup() => Emit(OpCode.Dup);
 
+    public BytecodeBuilder Lt() => Emit(OpCode.Lt);
+
+    public BytecodeBuilder Gt() => Emit(OpCode.Gt);
+
+    public BytecodeBuilder Eq() => Emit(OpCode.Eq);
+
+    public BytecodeBuilder Le() => Emit(OpCode.Le);
+
+    public BytecodeBuilder Ge() => Emit(OpCode.Ge);
+
+    public BytecodeBuilder LoadLocal(int index) => EmitWithInt32Operand(OpCode.LoadLocal, index);
+
     public BytecodeBuilder Jump(int targetAddress) => EmitWithInt32Operand(OpCode.Jump, targetAddress);
 
     /// <summary>The byte offset the next emitted instruction will start at — capture it before emitting a forward jump's target.</summary>

@@ -15,7 +15,10 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
 
     public Result<long> Run()
     {
-        var stack = new Stack<long>();
+        // A List (not Stack<T>) so LoadLocal can index an arbitrary, already-pushed slot in O(1) — a compiler
+        // targeting this VM can bind a `let`'s value to "whatever index it ends up at" and read it back later
+        // without popping it, since nothing here ever removes an earlier slot out from under a later one.
+        var stack = new List<long>();
         var callStack = new Stack<int>();
         var ip = entryPoint;
 
@@ -36,7 +39,7 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                         return Result<long>.Failure(Error.Create("Truncated operand for Push."));
                     }
 
-                    stack.Push(BitConverter.ToInt64(code, ip));
+                    stack.Add(BitConverter.ToInt64(code, ip));
                     ip += sizeof(long);
                     break;
 
@@ -48,6 +51,19 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     if (binaryResult.IsFailure)
                     {
                         return Result<long>.Failure(binaryResult.Error);
+                    }
+
+                    break;
+
+                case OpCode.Lt:
+                case OpCode.Gt:
+                case OpCode.Eq:
+                case OpCode.Le:
+                case OpCode.Ge:
+                    var comparisonResult = ApplyComparisonOp(op, stack);
+                    if (comparisonResult.IsFailure)
+                    {
+                        return Result<long>.Failure(comparisonResult.Error);
                     }
 
                     break;
@@ -86,7 +102,7 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                         return Result<long>.Failure(Error.Create("NewObj field count must not be negative."));
                     }
 
-                    stack.Push(Heap.Allocate(fieldCount).Id);
+                    stack.Add(Heap.Allocate(fieldCount).Id);
                     break;
 
                 case OpCode.LoadField:
@@ -98,19 +114,18 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     var loadIndex = BitConverter.ToInt32(code, ip);
                     ip += sizeof(int);
 
-                    if (stack.Count < 1)
+                    if (!TryPop(stack, out var loadHandleId))
                     {
                         return Result<long>.Failure(Error.Create("Stack underflow executing LoadField."));
                     }
 
-                    var loadTarget = new HeapHandle((int)stack.Pop());
-                    var loaded = Heap.GetField(loadTarget, loadIndex);
+                    var loaded = Heap.GetField(new HeapHandle((int)loadHandleId), loadIndex);
                     if (loaded.IsFailure)
                     {
                         return Result<long>.Failure(loaded.Error);
                     }
 
-                    stack.Push(loaded.Value.Id);
+                    stack.Add(loaded.Value.Id);
                     break;
 
                 case OpCode.StoreField:
@@ -122,14 +137,12 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     var storeIndex = BitConverter.ToInt32(code, ip);
                     ip += sizeof(int);
 
-                    if (stack.Count < 2)
+                    if (!TryPop(stack, out var fieldValueId) || !TryPop(stack, out var storeTargetId))
                     {
                         return Result<long>.Failure(Error.Create("Stack underflow executing StoreField."));
                     }
 
-                    var fieldValue = new HeapHandle((int)stack.Pop());
-                    var storeTarget = new HeapHandle((int)stack.Pop());
-                    var stored = Heap.SetField(storeTarget, storeIndex, fieldValue);
+                    var stored = Heap.SetField(new HeapHandle((int)storeTargetId), storeIndex, new HeapHandle((int)fieldValueId));
                     if (stored.IsFailure)
                     {
                         return Result<long>.Failure(stored.Error);
@@ -143,7 +156,7 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                         return Result<long>.Failure(Error.Create("Stack underflow executing Dup."));
                     }
 
-                    stack.Push(stack.Peek());
+                    stack.Add(stack[^1]);
                     break;
 
                 case OpCode.Jump:
@@ -164,21 +177,38 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     var jumpTarget = BitConverter.ToInt32(code, ip);
                     ip += sizeof(int);
 
-                    if (stack.Count < 1)
+                    if (!TryPop(stack, out var zeroTest))
                     {
                         return Result<long>.Failure(Error.Create("Stack underflow executing JumpIfZero."));
                     }
 
-                    if (stack.Pop() == 0)
+                    if (zeroTest == 0)
                     {
                         ip = jumpTarget;
                     }
 
                     break;
 
+                case OpCode.LoadLocal:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for LoadLocal."));
+                    }
+
+                    var localIndex = BitConverter.ToInt32(code, ip);
+                    ip += sizeof(int);
+
+                    if (localIndex < 0 || localIndex >= stack.Count)
+                    {
+                        return Result<long>.Failure(Error.Create($"LoadLocal index {localIndex} is out of range (stack has {stack.Count} slots)."));
+                    }
+
+                    stack.Add(stack[localIndex]);
+                    break;
+
                 case OpCode.Halt:
-                    return stack.Count > 0
-                        ? Result<long>.Success(stack.Pop())
+                    return TryPop(stack, out var haltValue)
+                        ? Result<long>.Success(haltValue)
                         : Result<long>.Failure(Error.Create("Halt with an empty stack."));
 
                 default:
@@ -187,22 +217,32 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
         }
     }
 
-    private static Result<Unit> ApplyBinaryOp(OpCode op, Stack<long> stack)
+    private static bool TryPop(List<long> stack, out long value)
     {
-        if (stack.Count < 2)
+        if (stack.Count == 0)
+        {
+            value = default;
+            return false;
+        }
+
+        value = stack[^1];
+        stack.RemoveAt(stack.Count - 1);
+        return true;
+    }
+
+    private static Result<Unit> ApplyBinaryOp(OpCode op, List<long> stack)
+    {
+        if (!TryPop(stack, out var right) || !TryPop(stack, out var left))
         {
             return Result<Unit>.Failure(Error.Create($"Stack underflow executing {op}."));
         }
-
-        var right = stack.Pop();
-        var left = stack.Pop();
 
         if (op == OpCode.Div && right == 0)
         {
             return Result<Unit>.Failure(Error.Create("Division by zero."));
         }
 
-        stack.Push(op switch
+        stack.Add(op switch
         {
             OpCode.Add => left + right,
             OpCode.Sub => left - right,
@@ -211,6 +251,27 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
             _ => throw new ArgumentOutOfRangeException(nameof(op), op, "Not a binary opcode."),
         });
 
+        return Result<Unit>.Success(Unit.Value);
+    }
+
+    private static Result<Unit> ApplyComparisonOp(OpCode op, List<long> stack)
+    {
+        if (!TryPop(stack, out var right) || !TryPop(stack, out var left))
+        {
+            return Result<Unit>.Failure(Error.Create($"Stack underflow executing {op}."));
+        }
+
+        var isTrue = op switch
+        {
+            OpCode.Lt => left < right,
+            OpCode.Gt => left > right,
+            OpCode.Eq => left == right,
+            OpCode.Le => left <= right,
+            OpCode.Ge => left >= right,
+            _ => throw new ArgumentOutOfRangeException(nameof(op), op, "Not a comparison opcode."),
+        };
+
+        stack.Add(isTrue ? 1 : 0);
         return Result<Unit>.Success(Unit.Value);
     }
 }

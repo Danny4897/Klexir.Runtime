@@ -55,7 +55,8 @@ vm.Heap.Collect(); // mark-sweep — nothing is rooted, so both objects are free
 
 | Capability | API | Notes |
 |---|---|---|
-| Arithmetic + control flow | `OpCode` (`Push`/`Add`/`Sub`/`Mul`/`Div`/`Call`/`Ret`/`Dup`/`Jump`/`JumpIfZero`/`Halt`) | `Call`/`Ret` share the value stack with a separate return-address stack; `Jump`/`JumpIfZero` + `Dup` are enough to write a real loop (backward jump + a zero-test that duplicates so the loop variable survives the test) |
+| Arithmetic + control flow | `OpCode` (`Push`/`Add`/`Sub`/`Mul`/`Div`/`Lt`/`Gt`/`Eq`/`Le`/`Ge`/`Call`/`Ret`/`Dup`/`Jump`/`JumpIfZero`/`LoadLocal`/`Halt`) | `Call`/`Ret` share the value stack with a separate return-address stack; `Jump`/`JumpIfZero` + `Dup` are enough to write a real loop; `Lt`/`Gt`/`Eq`/`Le`/`Ge` push `1`/`0` |
+| Locals | `LoadLocal <index>` | Reads (doesn't remove) an absolute stack slot — a compiler can bind a `let` to "whatever index its value lands at" and read it back later without popping it |
 | Assembler | `BytecodeBuilder` | Fluent — emits the exact byte layout `OpCode` documents. `JumpPlaceholder`/`JumpIfZeroPlaceholder` + `PatchInt32` support the classic forward-jump back-patching pattern (emit a zero operand, remember its position, overwrite it once the target address is known) |
 | Interpreter | `KlexirVm.Run()` | Returns `Result<long>` — stack underflow, division by zero, unknown opcode, etc. all fail the result instead of throwing |
 | Heap | `ManagedHeap`, `OpCode.NewObj/LoadField/StoreField` | Mark-sweep GC; frees unreachable objects *including reference cycles* |
@@ -66,7 +67,7 @@ vm.Heap.Collect(); // mark-sweep — nothing is rooted, so both objects are free
 ## Not there yet
 
 - No yield opcode, so `CooperativeScheduler` can't pause bytecode execution mid-program
-- No local-variable opcodes — everything lives on the shared value stack; a real compiler targeting this needs stack-slot accounting (or new opcodes for that, deliberately not designed yet without a concrete compiler to validate the design against)
+- No indirect call (calling a function *value*, e.g. a closure) — `Call`'s target is a fixed address baked into the bytecode; compiling closures needs a different calling convention
 - No metadata, exceptions, or native interop
 
 ## Requirements
