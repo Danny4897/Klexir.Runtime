@@ -2,7 +2,14 @@
   <PropertyGroup>
     <AssemblyName>Klexir.Runtime.Abstractions</AssemblyName>
     <PackageId>Klexir.Runtime.Abstractions</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Danny4897</Authors>
     <Description>Public bytecode contract for the Klexir runtime (opcodes) — the interface Klexir.Lang compiles against.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Danny4897/Klexir.Runtime</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Danny4897/Klexir.Runtime</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>klexir;bytecode;vm;runtime</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
