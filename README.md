@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/Danny4897/Klexir.Runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/Danny4897/Klexir.Runtime/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple.svg)](https://dotnet.microsoft.com/)
+[![Docs](https://img.shields.io/badge/docs-vitepress-7c3aed.svg)](https://danny4897.github.io/Klexir.Runtime/)
 
 A small stack-based bytecode VM, built to make explicit what's usually hidden under .NET: the interpretation loop, a call stack, an object heap with a real garbage collector. **Not a replacement for .NET in production** — this is the "how does a runtime actually work" repo.
 
-> **Status: private research repo, not published to NuGet.** No language compiles to this yet — `Klexir.Lang` is a front end only so far (see below). Reference the project directly until/unless it's published.
+> **Status: public research repo, not yet published to NuGet.** No language compiles to this yet — `Klexir.Lang` is a front end only so far (see below). Reference the project directly until/unless it's published.
 
 ---
 
