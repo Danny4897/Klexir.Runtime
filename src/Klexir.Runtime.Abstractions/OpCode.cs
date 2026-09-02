@@ -23,4 +23,10 @@ public enum OpCode : byte
 
     /// <summary>Stops execution and returns the top of stack.</summary>
     Halt = 5,
+
+    /// <summary>Pushes the instruction pointer following this instruction's 4-byte operand onto the call stack, then jumps to that operand's absolute address.</summary>
+    Call = 6,
+
+    /// <summary>Pops the call stack and jumps to that return address. Fails if the call stack is empty.</summary>
+    Ret = 7,
 }

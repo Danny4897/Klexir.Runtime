@@ -5,18 +5,20 @@ namespace Klexir.Runtime;
 
 /// <summary>
 /// Stack-based interpreter for <see cref="OpCode"/> bytecode. Deliberately low-level (raw byte decoding, a plain
-/// <see cref="long"/> stack) — this exists to show what a VM does under .NET, not to be a polished public API.
+/// <see cref="long"/> value stack and a separate call stack of return addresses) — this exists to show what a VM
+/// does under .NET, not to be a polished public API.
 /// </summary>
-public sealed class KlexirVm(byte[] code)
+public sealed class KlexirVm(byte[] code, int entryPoint = 0)
 {
     public Result<long> Run()
     {
         var stack = new Stack<long>();
-        var ip = 0;
+        var callStack = new Stack<int>();
+        var ip = entryPoint;
 
         while (true)
         {
-            if (ip >= code.Length)
+            if (ip < 0 || ip >= code.Length)
             {
                 return Result<long>.Failure(Error.Create("Bytecode ended without a Halt instruction."));
             }
@@ -45,6 +47,26 @@ public sealed class KlexirVm(byte[] code)
                         return Result<long>.Failure(binaryResult.Error);
                     }
 
+                    break;
+
+                case OpCode.Call:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for Call."));
+                    }
+
+                    var target = BitConverter.ToInt32(code, ip);
+                    callStack.Push(ip + sizeof(int));
+                    ip = target;
+                    break;
+
+                case OpCode.Ret:
+                    if (callStack.Count == 0)
+                    {
+                        return Result<long>.Failure(Error.Create("Ret with no active call."));
+                    }
+
+                    ip = callStack.Pop();
                     break;
 
                 case OpCode.Halt:

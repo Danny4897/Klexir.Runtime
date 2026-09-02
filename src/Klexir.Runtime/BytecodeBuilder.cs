@@ -26,6 +26,15 @@ public sealed class BytecodeBuilder
 
     public BytecodeBuilder Halt() => Emit(OpCode.Halt);
 
+    public BytecodeBuilder Call(int targetAddress)
+    {
+        _bytes.Add((byte)OpCode.Call);
+        _bytes.AddRange(BitConverter.GetBytes(targetAddress));
+        return this;
+    }
+
+    public BytecodeBuilder Ret() => Emit(OpCode.Ret);
+
     private BytecodeBuilder Emit(OpCode op)
     {
         _bytes.Add((byte)op);
