@@ -137,6 +137,45 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
 
                     break;
 
+                case OpCode.Dup:
+                    if (stack.Count < 1)
+                    {
+                        return Result<long>.Failure(Error.Create("Stack underflow executing Dup."));
+                    }
+
+                    stack.Push(stack.Peek());
+                    break;
+
+                case OpCode.Jump:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for Jump."));
+                    }
+
+                    ip = BitConverter.ToInt32(code, ip);
+                    break;
+
+                case OpCode.JumpIfZero:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for JumpIfZero."));
+                    }
+
+                    var jumpTarget = BitConverter.ToInt32(code, ip);
+                    ip += sizeof(int);
+
+                    if (stack.Count < 1)
+                    {
+                        return Result<long>.Failure(Error.Create("Stack underflow executing JumpIfZero."));
+                    }
+
+                    if (stack.Pop() == 0)
+                    {
+                        ip = jumpTarget;
+                    }
+
+                    break;
+
                 case OpCode.Halt:
                     return stack.Count > 0
                         ? Result<long>.Success(stack.Pop())

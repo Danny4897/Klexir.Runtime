@@ -38,4 +38,13 @@ public enum OpCode : byte
 
     /// <summary>Pops a value handle id then a target handle id, and stores the value into the target's field at the following 4-byte index.</summary>
     StoreField = 10,
+
+    /// <summary>Pushes a copy of the top of stack without popping it.</summary>
+    Dup = 11,
+
+    /// <summary>Unconditionally jumps to the following 4-byte absolute address.</summary>
+    Jump = 12,
+
+    /// <summary>Pops a value; jumps to the following 4-byte absolute address if it was zero, otherwise continues past the operand.</summary>
+    JumpIfZero = 13,
 }

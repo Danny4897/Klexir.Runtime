@@ -41,6 +41,37 @@ public sealed class BytecodeBuilder
 
     public BytecodeBuilder StoreField(int fieldIndex) => EmitWithInt32Operand(OpCode.StoreField, fieldIndex);
 
+    public BytecodeBuilder Dup() => Emit(OpCode.Dup);
+
+    public BytecodeBuilder Jump(int targetAddress) => EmitWithInt32Operand(OpCode.Jump, targetAddress);
+
+    /// <summary>The byte offset the next emitted instruction will start at — capture it before emitting a forward jump's target.</summary>
+    public int CurrentAddress => _bytes.Count;
+
+    /// <summary>Emits a Jump with a zero placeholder operand; patch it once the target address is known via <see cref="PatchInt32"/>.</summary>
+    public int JumpPlaceholder() => EmitPlaceholder(OpCode.Jump);
+
+    /// <summary>Emits a JumpIfZero with a zero placeholder operand; patch it once the target address is known via <see cref="PatchInt32"/>.</summary>
+    public int JumpIfZeroPlaceholder() => EmitPlaceholder(OpCode.JumpIfZero);
+
+    /// <summary>Overwrites a 4-byte operand previously emitted at <paramref name="operandPosition"/> (as returned by <see cref="JumpPlaceholder"/>/<see cref="JumpIfZeroPlaceholder"/>).</summary>
+    public void PatchInt32(int operandPosition, int value)
+    {
+        var bytes = BitConverter.GetBytes(value);
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            _bytes[operandPosition + i] = bytes[i];
+        }
+    }
+
+    private int EmitPlaceholder(OpCode op)
+    {
+        _bytes.Add((byte)op);
+        var operandPosition = _bytes.Count;
+        _bytes.AddRange(BitConverter.GetBytes(0));
+        return operandPosition;
+    }
+
     private BytecodeBuilder EmitWithInt32Operand(OpCode op, int operand)
     {
         _bytes.Add((byte)op);
