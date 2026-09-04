@@ -63,6 +63,18 @@ public enum OpCode : byte
     /// <summary>Pops two values (b, a in pop order), pushes 1 if a &gt;= b else 0.</summary>
     Ge = 18,
 
-    /// <summary>Pushes a copy of the value at the following 4-byte absolute stack index (0 = the bottom of the stack). Fails if the index is out of range.</summary>
+    /// <summary>Pushes a copy of the value at the following 4-byte frame-relative index (0 = the current call frame's
+    /// base — the first argument of the active <see cref="CallIndirect"/>, or the bottom of the stack outside any
+    /// such call). Fails if the index is out of range.</summary>
     LoadLocal = 19,
+
+    /// <summary>
+    /// Calls a closure heap object rather than a fixed compile-time address. Operand: 4-byte argument count N. Stack
+    /// before: N arguments (arg 0 lowest) then the closure's handle id on top — the closure is peeked, not popped.
+    /// Field 0 of the closure object is the entry point; fields 1.. are its captured values, reachable from inside
+    /// the call via <c>LoadLocal(N)</c> (the closure's own handle) followed by <see cref="LoadField"/>. Pushes a new
+    /// call frame whose base is the first argument's slot; <see cref="Ret"/> pops back to that base before pushing
+    /// the callee's result, discarding every argument/local the call pushed above it.
+    /// </summary>
+    CallIndirect = 20,
 }

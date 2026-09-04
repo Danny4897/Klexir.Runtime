@@ -19,8 +19,9 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
         // targeting this VM can bind a `let`'s value to "whatever index it ends up at" and read it back later
         // without popping it, since nothing here ever removes an earlier slot out from under a later one.
         var stack = new List<long>();
-        var callStack = new Stack<int>();
+        var callStack = new Stack<(int ReturnAddress, int? SavedFp)>();
         var ip = entryPoint;
+        var fp = 0;
 
         while (true)
         {
@@ -75,7 +76,7 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     }
 
                     var target = BitConverter.ToInt32(code, ip);
-                    callStack.Push(ip + sizeof(int));
+                    callStack.Push((ip + sizeof(int), null));
                     ip = target;
                     break;
 
@@ -85,7 +86,47 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                         return Result<long>.Failure(Error.Create("Ret with no active call."));
                     }
 
-                    ip = callStack.Pop();
+                    var frame = callStack.Pop();
+
+                    if (frame.SavedFp is int savedFp)
+                    {
+                        if (!TryPop(stack, out var returnValue))
+                        {
+                            return Result<long>.Failure(Error.Create("Ret with an empty stack inside a CallIndirect frame."));
+                        }
+
+                        stack.RemoveRange(fp, stack.Count - fp);
+                        stack.Add(returnValue);
+                        fp = savedFp;
+                    }
+
+                    ip = frame.ReturnAddress;
+                    break;
+
+                case OpCode.CallIndirect:
+                    if (ip + sizeof(int) > code.Length)
+                    {
+                        return Result<long>.Failure(Error.Create("Truncated operand for CallIndirect."));
+                    }
+
+                    var argCount = BitConverter.ToInt32(code, ip);
+                    ip += sizeof(int);
+
+                    if (argCount < 0 || stack.Count < argCount + 1)
+                    {
+                        return Result<long>.Failure(Error.Create("Stack underflow executing CallIndirect."));
+                    }
+
+                    var closureHandle = new HeapHandle((int)stack[^1]);
+                    var codeAddress = Heap.GetField(closureHandle, 0);
+                    if (codeAddress.IsFailure)
+                    {
+                        return Result<long>.Failure(codeAddress.Error);
+                    }
+
+                    callStack.Push((ip, fp));
+                    fp = stack.Count - argCount - 1;
+                    ip = codeAddress.Value.Id;
                     break;
 
                 case OpCode.NewObj:
@@ -198,12 +239,13 @@ public sealed class KlexirVm(byte[] code, int entryPoint = 0)
                     var localIndex = BitConverter.ToInt32(code, ip);
                     ip += sizeof(int);
 
-                    if (localIndex < 0 || localIndex >= stack.Count)
+                    var absoluteIndex = fp + localIndex;
+                    if (localIndex < 0 || absoluteIndex >= stack.Count)
                     {
-                        return Result<long>.Failure(Error.Create($"LoadLocal index {localIndex} is out of range (stack has {stack.Count} slots)."));
+                        return Result<long>.Failure(Error.Create($"LoadLocal index {localIndex} is out of range (frame has {stack.Count - fp} slots)."));
                     }
 
-                    stack.Add(stack[localIndex]);
+                    stack.Add(stack[absoluteIndex]);
                     break;
 
                 case OpCode.Halt:
